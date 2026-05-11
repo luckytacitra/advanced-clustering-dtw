@@ -1,64 +1,332 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
-# Title
-st.title("🚗 Advanced Time Series Clustering with DTW")
+from tslearn.clustering import TimeSeriesKMeans
+from tslearn.utils import to_time_series_dataset
 
-# Load dataset
-df = pd.read_csv("dataset.csv")
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
 
-# Convert datetime
-df['LastUpdated'] = pd.to_datetime(df['LastUpdated'])
-
-# Create Occupancy Rate
-df['OccupancyRate'] = df['Occupancy'] / df['Capacity']
-
-# Show dataset
-st.subheader("Dataset Preview")
-
-st.dataframe(df.head())
-
-st.subheader("Occupancy Rate Preview")
-
-st.dataframe(
-    df[['SystemCodeNumber',
-        'Occupancy',
-        'Capacity',
-        'OccupancyRate']]
-    .head()
+# =====================================
+# PAGE CONFIG
+# =====================================
+st.set_page_config(
+    page_title="Advanced DTW Clustering",
+    page_icon="🚗",
+    layout="wide"
 )
 
-# Show basic info
-st.subheader("Dataset Information")
+# =====================================
+# CUSTOM CSS
+# =====================================
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #f4f9ff;
+    }
 
-st.write("Jumlah Data:", df.shape[0])
-st.write("Jumlah Kolom:", df.shape[1])
+    h1, h2, h3 {
+        color: #1e3a5f;
+    }
 
-# Show columns
-st.subheader("Columns")
+    .stMetric {
+        background-color: #dcefff;
+        padding: 15px;
+        border-radius: 12px;
+    }
 
-st.write(df.columns.tolist())
+    div[data-testid="stDataFrame"] {
+        background-color: white;
+        border-radius: 10px;
+        padding: 10px;
+    }
 
-# Select parking lot
-st.subheader("Parking Occupancy Time Series")
+    section[data-testid="stSidebar"] {
+        background-color: #dcefff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-parking_choice = st.selectbox(
+# =====================================
+# TITLE
+# =====================================
+st.title("🚗 Advanced Time Series Clustering with DTW")
+
+st.markdown(
+    """
+    Dashboard analisis clustering time series menggunakan:
+    - Dynamic Time Warping (DTW)
+    - TimeSeriesKMeans
+    - PCA Visualization
+    - Silhouette Score
+    """
+)
+
+# =====================================
+# LOAD DATA
+# =====================================
+df = pd.read_csv("dataset.csv")
+
+# =====================================
+# PREPROCESSING
+# =====================================
+df['LastUpdated'] = pd.to_datetime(df['LastUpdated'])
+
+# Occupancy Rate
+# occupancy / capacity
+
+df['OccupancyRate'] = (
+    df['Occupancy'] / df['Capacity']
+)
+
+# =====================================
+# SIDEBAR
+# =====================================
+st.sidebar.title("⚙️ Configuration")
+
+n_clusters = st.sidebar.slider(
+    "Select Number of Clusters",
+    min_value=2,
+    max_value=6,
+    value=3
+)
+
+selected_parking = st.sidebar.selectbox(
     "Choose Parking Area",
     df['SystemCodeNumber'].unique()
 )
 
-# Filter data
+# =====================================
+# DATASET OVERVIEW
+# =====================================
+st.header("📊 Dataset Overview")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric(
+        "Jumlah Data",
+        df.shape[0]
+    )
+
+with col2:
+    st.metric(
+        "Jumlah Kolom",
+        df.shape[1]
+    )
+
+with col3:
+    st.metric(
+        "Jumlah Parkiran",
+        df['SystemCodeNumber'].nunique()
+    )
+
+st.subheader("Dataset Preview")
+
+st.dataframe(df.head())
+
+# =====================================
+# OCCUPANCY RATE PREVIEW
+# =====================================
+st.subheader("Occupancy Rate Preview")
+
+st.dataframe(
+    df[[
+        'SystemCodeNumber',
+        'Occupancy',
+        'Capacity',
+        'OccupancyRate'
+    ]].head()
+)
+
+# =====================================
+# TIME SERIES VISUALIZATION
+# =====================================
+st.header("📈 Time Series Visualization")
+
 filtered_df = df[
-    df['SystemCodeNumber'] == parking_choice
+    df['SystemCodeNumber'] == selected_parking
 ]
 
-# Plot time series
-fig = px.line(
+fig_ts = px.line(
     filtered_df,
     x='LastUpdated',
     y='OccupancyRate',
-    title=f"Occupancy Rate - {parking_choice}"
+    title=f'Occupancy Rate - {selected_parking}',
+    template='plotly_white'
 )
 
-st.plotly_chart(fig)
+fig_ts.update_traces(
+    line_color='#5DADE2'
+)
+
+st.plotly_chart(
+    fig_ts,
+    use_container_width=True
+)
+
+# =====================================
+# TIME SERIES PIVOT
+# =====================================
+st.header("🧠 DTW Time Series Clustering")
+
+pivot_df = df.pivot_table(
+    index='LastUpdated',
+    columns='SystemCodeNumber',
+    values='OccupancyRate'
+)
+
+# Fill missing values
+pivot_df = pivot_df.ffill()
+
+# =====================================
+# SCALING
+# =====================================
+data = pivot_df.T.values
+
+scaler = MinMaxScaler()
+
+data_scaled = scaler.fit_transform(data)
+
+# =====================================
+# TIME SERIES FORMAT
+# =====================================
+ts_data = to_time_series_dataset(data_scaled)
+
+# =====================================
+# DTW CLUSTERING
+# =====================================
+model = TimeSeriesKMeans(
+    n_clusters=n_clusters,
+    metric='dtw',
+    random_state=42
+)
+
+labels = model.fit_predict(ts_data)
+
+# =====================================
+# CLUSTER RESULT
+# =====================================
+cluster_result = pd.DataFrame({
+    'ParkingLot': pivot_df.columns,
+    'Cluster': labels
+})
+
+st.subheader("Cluster Results")
+
+st.dataframe(cluster_result)
+
+# =====================================
+# SILHOUETTE SCORE
+# =====================================
+score = silhouette_score(
+    data_scaled,
+    labels
+)
+
+st.metric(
+    "Silhouette Score",
+    round(score, 4)
+)
+
+# =====================================
+# CLUSTER DISTRIBUTION
+# =====================================
+st.subheader("Cluster Distribution")
+
+cluster_count = cluster_result['Cluster'].value_counts()
+
+fig_bar = px.bar(
+    x=cluster_count.index,
+    y=cluster_count.values,
+    labels={
+        'x': 'Cluster',
+        'y': 'Number of Parking Lots'
+    },
+    title='Distribution of Clusters',
+    template='plotly_white'
+)
+
+fig_bar.update_traces(
+    marker_color='#85C1E9'
+)
+
+st.plotly_chart(
+    fig_bar,
+    use_container_width=True
+)
+
+# =====================================
+# PCA VISUALIZATION
+# =====================================
+st.header("🌌 PCA Cluster Visualization")
+
+pca = PCA(n_components=2)
+
+pca_result = pca.fit_transform(data_scaled)
+
+pca_df = pd.DataFrame({
+    'PCA1': pca_result[:, 0],
+    'PCA2': pca_result[:, 1],
+    'Cluster': labels.astype(str),
+    'ParkingLot': pivot_df.columns
+})
+
+fig_cluster = px.scatter(
+    pca_df,
+    x='PCA1',
+    y='PCA2',
+    color='Cluster',
+    hover_name='ParkingLot',
+    title='DTW Time Series Clustering',
+    template='plotly_white',
+    color_discrete_sequence=[
+        '#5DADE2',
+        '#85C1E9',
+        '#AED6F1',
+        '#3498DB',
+        '#2E86C1',
+        '#1B4F72'
+    ]
+)
+
+st.plotly_chart(
+    fig_cluster,
+    use_container_width=True
+)
+
+# =====================================
+# DOWNLOAD RESULT
+# =====================================
+st.header("⬇️ Download Cluster Result")
+
+csv = cluster_result.to_csv(index=False)
+
+st.download_button(
+    label="Download CSV",
+    data=csv,
+    file_name='cluster_result.csv',
+    mime='text/csv'
+)
+
+# =====================================
+# INTERPRETATION
+# =====================================
+st.header("📝 Cluster Interpretation")
+
+st.markdown(
+    """
+    ### Interpretasi Hasil
+
+    - Cluster yang sama menunjukkan pola okupansi parkir yang mirip.
+    - DTW mampu mendeteksi kemiripan pola meskipun terdapat pergeseran waktu.
+    - Clustering dilakukan menggunakan TimeSeriesKMeans dengan DTW distance.
+    - PCA digunakan untuk memvisualisasikan hasil clustering ke dalam 2 dimensi.
+    """
+)
