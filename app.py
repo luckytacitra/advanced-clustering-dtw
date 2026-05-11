@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 # Title
 st.title("🚗 Advanced Time Series Clustering with DTW")
@@ -38,3 +39,26 @@ st.write("Jumlah Kolom:", df.shape[1])
 st.subheader("Columns")
 
 st.write(df.columns.tolist())
+
+# Select parking lot
+st.subheader("Parking Occupancy Time Series")
+
+parking_choice = st.selectbox(
+    "Choose Parking Area",
+    df['SystemCodeNumber'].unique()
+)
+
+# Filter data
+filtered_df = df[
+    df['SystemCodeNumber'] == parking_choice
+]
+
+# Plot time series
+fig = px.line(
+    filtered_df,
+    x='LastUpdated',
+    y='OccupancyRate',
+    title=f"Occupancy Rate - {parking_choice}"
+)
+
+st.plotly_chart(fig)
