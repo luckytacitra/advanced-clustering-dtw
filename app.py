@@ -287,13 +287,13 @@ fig_cluster = px.scatter(
     title='DTW Time Series Clustering',
     template='plotly_white',
     color_discrete_sequence=[
-        '#5DADE2',
-        '#85C1E9',
-        '#AED6F1',
-        '#3498DB',
-        '#2E86C1',
-        '#1B4F72'
-    ]
+    '#007BFF',  # biru
+    '#00C9A7',  # tosca
+    '#FFD93D',  # kuning
+    '#FF6B6B',  # merah coral
+    '#9B59B6',  # ungu
+    '#FF8C42'   # orange
+]
 )
 
 st.plotly_chart(
