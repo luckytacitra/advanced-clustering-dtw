@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 import pandas as pd
 import plotly.express as px
 import numpy as np
@@ -13,6 +14,18 @@ from sklearn.metrics import silhouette_score
 # =====================================
 # PAGE CONFIG
 # =====================================
+# =====================================
+# LOAD SIDEBAR BACKGROUND
+# =====================================
+
+def get_base64(file_path):
+    with open(file_path, "rb") as f:
+        data = f.read()
+
+    return base64.b64encode(data).decode()
+
+bg_image = get_base64("bg.jpg")
+
 st.set_page_config(
     page_title="Advanced DTW Clustering",
     page_icon="🚗",
@@ -23,33 +36,50 @@ st.set_page_config(
 # CUSTOM CSS
 # =====================================
 st.markdown(
-    """
+    f'''
     <style>
-    .main {
-        background-color: #f4f9ff;
-    }
 
-    h1, h2, h3 {
+    .main {{
+        background-color: #f8fbff;
+    }}
+
+    h1, h2, h3 {{
         color: #1e3a5f;
-    }
+        font-family: 'Trebuchet MS';
+    }}
 
-    .stMetric {
-        background-color: #dcefff;
+    section[data-testid="stSidebar"] {{
+        background-image: url("data:image/jpg;base64,{bg_image}");
+        background-size: cover;
+        background-position: center;
+    }}
+
+    section[data-testid="stSidebar"] > div {{
+        background: rgba(255,255,255,0.55);
+        backdrop-filter: blur(10px);
+    }}
+
+    .stMetric {{
+        background: rgba(255,255,255,0.75);
+        border-radius: 18px;
         padding: 15px;
-        border-radius: 12px;
-    }
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+    }}
 
-    div[data-testid="stDataFrame"] {
-        background-color: white;
-        border-radius: 10px;
+    div[data-testid="stDataFrame"] {{
+        background: rgba(255,255,255,0.8);
+        border-radius: 15px;
         padding: 10px;
-    }
+    }}
 
-    section[data-testid="stSidebar"] {
-        background-color: #dcefff;
-    }
+    .stPlotlyChart {{
+        background: rgba(255,255,255,0.75);
+        border-radius: 20px;
+        padding: 10px;
+    }}
+
     </style>
-    """,
+    ''',
     unsafe_allow_html=True
 )
 
