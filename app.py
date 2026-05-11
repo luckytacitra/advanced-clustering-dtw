@@ -183,7 +183,7 @@ pivot_df = df.pivot_table(
 )
 
 # Fill missing values
-pivot_df = pivot_df.ffill()
+pivot_df = pivot_df.ffill().bfill()
 
 # =====================================
 # SCALING
